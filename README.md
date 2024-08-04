@@ -1,6 +1,6 @@
 This is a 960x704 example running on the Dreamcast (confirmed to be working through OSSC)
 
-If you want to try this on your OSSC as well, use the following settings :
+OSSC settings for 960x704 36hz
 ```
 H.samplerate = 1024
 H.synclen = 16
@@ -9,6 +9,19 @@ H.active = 960
 V.synclen = 8
 V.backporch = 16
 V.active = 704
+H.border = 0
+V.border = 0
+```
+
+For 960x960 27hz
+```
+H.samplerate = 1032
+H.synclen = 32
+H.backporch = 40 
+H.active = 960
+V.synclen = 8
+V.backporch = 31
+V.active = 960
 H.border = 0
 V.border = 0
 ```

@@ -522,6 +522,133 @@ void MOD_STARTUP_960x704_VGA_CVT_RBv2(uint8_t fbuffer_color_mode)
 }
 
 
+void MOD_STARTUP_960x720_VGA_CVT_RBv2(uint8_t fbuffer_color_mode)
+{
+  // Set global video output mode parameters
+  STARTUP_video_params.video_width = 960;
+  STARTUP_video_params.video_height = 720;
+  STARTUP_video_params.video_color_type = fbuffer_color_mode;
+  STARTUP_video_params.video_refresh_rate = 60;
+
+  // 1360 wide scaled to 1280/1360 wide (field)
+  // 960 wide scaled to 960 wide (visible frame)
+  // Perfect for the DC because the DC does 32x32 tiles.
+  uint32_t horiz_active_area = 960;
+  uint32_t vert_active_area = 720;
+  // {RGB0555, RGB565} = 2Bpp, {RGB888} = 3Bpp, {RGB0888} = 4Bpp
+  uint32_t bpp_mode_size = fbuffer_color_mode + 1 + (0x1 ^ ((fbuffer_color_mode & 0x1) | (fbuffer_color_mode >> 1))); // Add another 1 only if 0b00
+
+  // Set global framebuffer parameters
+  STARTUP_video_params.fb_width = horiz_active_area;
+  STARTUP_video_params.fb_height = vert_active_area;
+  STARTUP_video_params.fb_color_bytes = bpp_mode_size;
+
+  int cable = vid_check_cable();
+
+  if(cable == CT_VGA)
+  {
+    *(volatile uint32_t*)0xa05f80e8 = 0x00160008;
+    *(volatile uint32_t*)0xa05f8044 = 0x00800000 | (fbuffer_color_mode << 2);
+
+    POWERVR_FB_RENDER_MODULO = (horiz_active_area * bpp_mode_size) / 8; // for PVR to know active area width
+    POWERVR_BORDER_COLOR = 0x00000000; // Border color in RGB0888 format (this mode has no border)
+    POWERVR_FB_DISPLAY_SIZE = (1 << 20) | ((vert_active_area - 1) << 10) | (((horiz_active_area * bpp_mode_size) / 4) - 1); // progressive scan has a 1 since no lines are skipped
+
+    POWERVR_HPOS = 0x0000003F; // ok: 63
+    POWERVR_HPOS_IRQ = 0x03FF0000; // ok: 1023
+    POWERVR_HBORDER = 0x003F03FF; // ok: 63, 1008 
+
+    POWERVR_SYNC_LOAD = 0x02ed03fF; // 1024x749
+    POWERVR_SYNC_WIDTH = 0x02e2d30f; // ok: 7 (8,- 1), 877 (909 - 31,- 1), 3 (DMT legacy), 15 (16,- 1)
+    
+    POWERVR_VPOS = 0x00190019; // ok: 14 & 14 ? new: 11 & 11.. CVT-RBv2: 14 & 14. Using 31 & 31.. 40 & 40, default: 0x00280028 (vert)
+    POWERVR_VPOS_IRQ = 0x001902e9; // ok: 14, 494 ? new: 11, 491.. CVT-RBv2: 14, 494. Using 21, 511.. Using 21, 512. 21, 520, default: 0x00150208 (vert)
+    POWERVR_SYNC_CFG = 0x00000100;
+    POWERVR_VBORDER = 0x001902e9; // ok: 14, 494 ? new: 11, 491.. CVT-RBv2: 14, 494. Using 31, 511.. Using 40, 512. 40, 520, default: 0x00280208 (vert)
+    
+
+    uint32_t scan_area_size = horiz_active_area * vert_active_area;
+    uint32_t scan_area_size_bytes = scan_area_size * bpp_mode_size; // This will always be divisible by 4
+
+    // Reset framebuffer address
+    *(volatile uint32_t*)0xa05f8050 = 0x00000000; // BootROM sets this to 0x00200000 (framebuffer base is 0xa5000000 + this)
+    *(volatile uint32_t*)0xa05f8054 = 0x00000000; // Same for progressive, resetting the offset gets us 2MB VRAM back after BootROM is done with it
+
+    // zero out framebuffer area
+    for(uint32_t pixel_or_two = 0; pixel_or_two < scan_area_size_bytes; pixel_or_two += 4)
+    {
+      *(uint32_t*)(0xa5000000 + pixel_or_two) = 0;
+    }
+
+    // re-enable video
+    *(volatile uint32_t*)0xa05f80e8 &= ~8;
+    *(volatile uint32_t*)0xa05f8044 |= 1;
+  }
+}
+
+void MOD_STARTUP_960x960_VGA_CVT_RBv2(uint8_t fbuffer_color_mode)
+{
+  // Set global video output mode parameters
+  STARTUP_video_params.video_width = 960;
+  STARTUP_video_params.video_height = 960;
+  STARTUP_video_params.video_color_type = fbuffer_color_mode;
+  STARTUP_video_params.video_refresh_rate = 60;
+
+  // 1360 wide scaled to 1280/1360 wide (field)
+  // 960 wide scaled to 960 wide (visible frame)
+  // Perfect for the DC because the DC does 32x32 tiles.
+  uint32_t horiz_active_area = 960;
+  uint32_t vert_active_area = 960;
+  // {RGB0555, RGB565} = 2Bpp, {RGB888} = 3Bpp, {RGB0888} = 4Bpp
+  uint32_t bpp_mode_size = fbuffer_color_mode + 1 + (0x1 ^ ((fbuffer_color_mode & 0x1) | (fbuffer_color_mode >> 1))); // Add another 1 only if 0b00
+
+  // Set global framebuffer parameters
+  STARTUP_video_params.fb_width = horiz_active_area;
+  STARTUP_video_params.fb_height = vert_active_area;
+  STARTUP_video_params.fb_color_bytes = bpp_mode_size;
+
+  if(vid_check_cable() == CT_VGA)
+  {
+    *(volatile uint32_t*)0xa05f80e8 = 0x00160008;
+    *(volatile uint32_t*)0xa05f8044 = 0x00800000 | (fbuffer_color_mode << 2);
+
+    POWERVR_FB_RENDER_MODULO = (horiz_active_area * bpp_mode_size) / 8; // for PVR to know active area width
+    POWERVR_BORDER_COLOR = 0x00000000; // Border color in RGB0888 format (this mode has no border)
+    POWERVR_FB_DISPLAY_SIZE = (1 << 20) | ((vert_active_area - 1) << 10) | (((horiz_active_area * bpp_mode_size) / 4) - 1); // progressive scan has a 1 since no lines are skipped
+
+    POWERVR_HPOS = 0x0000003F; // ok: 63
+    POWERVR_HPOS_IRQ = 0x03FF0000; // ok: 1023
+    POWERVR_HBORDER = 0x003F03FF; // ok: 63, 1023
+
+    POWERVR_SYNC_LOAD = 0x03e703FF; // 1024x999
+    POWERVR_SYNC_WIDTH = 0x029a530f; // ok: 2, 421, 3 (DMT legacy), 15 (16,- 1)
+    
+    POWERVR_VPOS = 0x00270027; // ok: 14 & 14 ? new: 11 & 11.. CVT-RBv2: 14 & 14. Using 31 & 31.. 40 & 40, default: 0x00280028 (vert)
+    POWERVR_VPOS_IRQ = 0x002703e7; // ok: 14, 494 ? new: 11, 491.. CVT-RBv2: 14, 494. Using 21, 511.. Using 21, 512. 21, 520, default: 0x00150208 (vert)
+    POWERVR_VBORDER = 0x002703e7; // ok: 14, 494 ? new: 11, 491.. CVT-RBv2: 14, 494. Using 31, 511.. Using 40, 512. 40, 520, default: 0x00280208 (vert)
+    
+	POWERVR_SYNC_CFG = 0x00000100;
+
+    uint32_t scan_area_size = horiz_active_area * vert_active_area;
+    uint32_t scan_area_size_bytes = scan_area_size * bpp_mode_size; // This will always be divisible by 4
+
+    // Reset framebuffer address
+    *(volatile uint32_t*)0xa05f8050 = 0x00000000; // BootROM sets this to 0x00200000 (framebuffer base is 0xa5000000 + this)
+    *(volatile uint32_t*)0xa05f8054 = 0x00000000; // Same for progressive, resetting the offset gets us 2MB VRAM back after BootROM is done with it
+
+    // zero out framebuffer area
+    for(uint32_t pixel_or_two = 0; pixel_or_two < scan_area_size_bytes; pixel_or_two += 4)
+    {
+      *(uint32_t*)(0xa5000000 + pixel_or_two) = 0;
+    }
+
+    // re-enable video
+    *(volatile uint32_t*)0xa05f80e8 &= ~8;
+    *(volatile uint32_t*)0xa05f8044 |= 1;
+  }
+}
+
+
 void pvr_setup()
 {
 	pvr_init_params_t params = {
