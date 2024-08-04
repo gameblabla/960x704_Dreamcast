@@ -1,0 +1,11 @@
+
+pvrtex --compress --format yuv -i bakugan1.png -o b.tex
+pvrtex --compress --format rgb565 -i bakugan1.png -o b.tex
+
+ffmpeg -i big.png -pix_fmt rgb565le big.rgb 
+ffmpeg -i 640.png -pix_fmt bgr24 640.rgb 
+
+ffmpeg -i 800.png -pix_fmt bgr24 cd/800.rgb 
+
+For our current example (960x704 RGB888)
+ffmpeg -i 43_960x704.png -pix_fmt bgr24 cd/43_960x704.rgb
